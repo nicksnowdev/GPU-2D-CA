@@ -1,20 +1,22 @@
-let font; // WebGL requires fonts to be loaded manually
+/// <reference path="../../TSDef/p5/global.d.ts" />
+
+let pane;
+const controls = {
+  iterations: 2,
+  noFlicker: true,
+  brushSize: 35,
+  rule: "00010001000011010101000001001000000000010110000111001110000010010001101000101100000101110100011000011110001100001010010001100011000000000010010001100101011010110010101111110110000000100010100011011000010100011000110010100001000001010110000010110001010011001001000101011011011001000011101101111100011010001010010010101111001011001110010101111011011101000000011111001100100001111010101100011011101010111010111001000111011111011011001111000100001000111111001110000001000111100100010111010001111100011101100111111111",
+  symmetry: true
+}
 let canvas;
 let graphics1; // stage 1
 let graphics2; // stage 2
 let graphics3; // rule
-let rule;
+let ruleText; // the p5.element
 const ruleArray = [];
 let backArray;
-let symmetry;
-let ruleGenerate;
-let ruleSubmit;
-let ruleBack;
 let caShader;
 let noiseShader;
-let iterSlider;
-let flickering;
-let brushSlider;
 let lastBrushX = 0; // for drawing smooth lines
 let lastBrushY = 0;
 let zoom = 1;
@@ -22,106 +24,28 @@ let panX = 0;
 let panY = 0;
 let halfWidth;
 let halfHeight;
-let fillButton;
-let clearButton;
-let mandalaButton;
-let mandalaLabel;
+let paused = false;
+let pauseBtn;
+let iterSld;
+let mandalaBtn;
 let mandalaNum = 1;
 const lastMandala = [0, 0, 1];
-let pauseButton;
-let paused = false;
-const fps = [];
+
+
 
 
 function preload() {
-  font = loadFont("arial.ttf"); // web-safe font
-  caShader = loadShader("shader.vert", "ca.frag");
-  noiseShader = loadShader("shader.vert", "noise.frag"); // white -> noise
+  caShader = loadShader("vert.glsl", "ca_frag.glsl");
+  noiseShader = loadShader("vert.glsl", "noise_frag.glsl"); // white -> noise
 }
 
 
-// displays the average framerate over a given history size
-function draw_fps_avg(hist = 3, bg = true, margin = 2) {
-  // update the rolling window of framerates
-  if(fps.push(frameRate()) > hist) {
-    fps.shift();
-  } else { // if the array is smaller than it should be:
-    for(let i = 0; i < hist; i++) {
-      fps.push(frameRate()); // grow the array up to size
-    }
-  }
 
-  // average the samples
-  let fpsAvg = 0;
-  for(let i = 0; i < hist; i++) {
-    fpsAvg += fps[i];
-  }
-  let fpsText = (fpsAvg / hist).toFixed(0);
-
-  // deal with WebGL's center origin
-  let halfWidth = width * .5;
-  let halfHeight = height * .5;
-  // draw background if necessary
-  push(); // begin a new drawing state
-  textFont(font, 15); // set this here so we know the height of the font
-  if(bg) {
-    fill(0, 127);
-    noStroke();
-    rect(-halfWidth, halfHeight - textAscent() - margin * 2, textWidth(fpsText) + margin * 2, textAscent() + margin * 2);
-  }
-  // draw framerate text in the bottom left with no decimal places
-  fill(0, 200, 255, 255);
-  stroke(0, 255); // stroke on text doesn't work with WebGL apparently, but i'm leaving it in.
-  strokeWeight(2);
-  text(fpsText, -halfWidth + margin, halfHeight - margin);
-  pop(); // restore drawing state
-}
-
-// called when pause button is clicked
-function toggle_pause() {
-  if(!paused) {
-    pauseButton.html("resume")
-    paused = true;
-  } else {
-    pauseButton.html("pause")
-    paused = false;
-  }
-}
 
 // THIS PREVENT CONTEXT MENU WHEN RIGHT-CLICKING ON THE CANVAS
 document.oncontextmenu = function() {
   if (mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height)
     return false;
-}
-
-// called when iterSlider is changed
-function iterSlider_input() {
-  iterText.value(iterSlider.value());
-}
-// called when iterText is changed
-function iterText_input() {
-  iterSlider.value(iterText.value());
-}
-function toggleFlickering() {
-  if(flickering.checked()) {
-    iterSlider.attribute("min", "2");
-    iterSlider.attribute("step", "2");
-    iterSlider.value(floor(iterSlider.value() / 2) * 2 - 2); // the -2 here is because for some reason it rounds UP during the division (floor not necessary)
-    iterText.value(iterSlider.value());
-  } else {
-    iterSlider.attribute("min", "1");
-    iterSlider.attribute("step", "1");
-    iterSlider.value(iterText.value());
-  }
-}
-
-// called when brushSlider is changed
-function brushSlider_input() {
-  brushText.value(brushSlider.value());
-}
-// called when brushText is changed
-function brushText_input() {
-  brushSlider.value(brushText.value());
 }
 
 function randomize_cells() {
@@ -138,7 +62,7 @@ function randomize_cells() {
   graphics1.updatePixels();
 
   // also unpause
-  pauseButton.html("pause")
+  pauseBtn.title = "pause";
   paused = false;
 }
 
@@ -159,7 +83,7 @@ function randomize_cells_mini() {
   graphics1.updatePixels();
 
   // also unpause
-  pauseButton.html("pause")
+  pauseBtn.title = "pause";
   paused = false;
 }
 
@@ -196,11 +120,12 @@ function mandala() {
     mandalaNum = 0;
   }
 
-  if(mandalaLabel.html() == "") {
-    mandalaLabel.html(1);
+  if(mandalaBtn.title == "mandala" ) {
+    mandalaBtn.title = "mandala " + "1";
+    print("check")
   } else {
     mandalaNum++;
-    mandalaLabel.html(mandalaNum);
+    mandalaBtn.title = "mandala " + str(mandalaNum);
   }
 
   if(lastMandala[2] == 0) {
@@ -214,12 +139,12 @@ function mandala() {
     lastMandala[2] = 0;
   } else {
     resetLastMandala();
-    mandalaLabel.html(7);
+    mandalaBtn.title = "mandala " + "7";
     mandalaNum = 7;
   }
 
   // also unpause
-  pauseButton.html("pause")
+  pauseBtn.title = "pause"
   paused = false;
 }
 
@@ -230,14 +155,14 @@ function resetLastMandala() {
   }
   lastMandala[2] = 1;
   mandalaNum = 1;
-  mandalaLabel.html("");
+  mandalaBtn.title = "mandala";
 }
 
 function clear_cells() {
   graphics1.background(0);
 
   // also unpause
-  pauseButton.html("pause")
+  pauseBtn.title = "pause";
   paused = false;
 }
 
@@ -301,10 +226,9 @@ function generate() {
   backArray = [...ruleArray]; // update history
   // clear and initialize to -1s
   for(let i = 0; i < 512; i++) {
-    ruleArray.shift(); // shift out index 0
-    ruleArray.push(-1); // push in index 511
+    ruleArray[i] = -1;
   }
-  if(symmetry.checked()) { // iterate through the array, get each one's 4, set all to same random number
+  if(controls.symmetry) { // iterate through the array, get each one's 4, set all to same random number
     for(let i = 0; i < 512; i++) {
       if(ruleArray[i] == -1) {
         const state2 = rotateForSym(decToBinArray(i));
@@ -322,8 +246,10 @@ function generate() {
       ruleArray[i] = random([0, 1]);
     }
   }
-  rule.value(ruleArray.join(""));
-  print(rule.value());
+  controls.rule = ruleArray.join("");
+  ruleText.value(controls.rule);
+  pane.refresh();
+  print(controls.rule);
   arrToBuffer(ruleArray, graphics3); // update shader uniform source
   resetLastMandala();
   randomize_cells_mini();
@@ -331,11 +257,12 @@ function generate() {
 
 function submit() {
   backArray = [...ruleArray]; // update history
-  const numArray = rule.value().split("").map(Number);
+  controls.rule = ruleText.value();
+  const numArray = controls.rule.split("").map(Number);
   for(let index = 0; index < 512; index++) {
     ruleArray[index] = numArray[index];
   }
-  print(rule.value());
+  print(controls.rule);
   arrToBuffer(ruleArray, graphics3); // update shader uniform source
   resetLastMandala();
   randomize_cells_mini();
@@ -343,7 +270,9 @@ function submit() {
 
 // reload the previous rule
 function back() {
-  rule.value(backArray.join(""));
+  controls.rule = backArray.join("");
+  ruleText.value(controls.rule);
+  pane.refresh();
   submit();
 }
 
@@ -365,7 +294,6 @@ function setup() {
   pixelDensity(1); // account for high-density displays
   canvas = createCanvas(512, 512, WEBGL); // 3D mode to allow shaders
   background(0); // initialize
-  canvas.position((windowWidth - width) / 2, 32); // center the window
   halfWidth = width * .5;
   halfHeight = height * .5;
   graphics1 = createGraphics(width, height); // create a 2D graphics buffer
@@ -380,95 +308,63 @@ function setup() {
     ruleArray.push(0);
   }
 
-  // set up controls for iterations
-  iterSlider = createSlider(2, 50, 2, 2);
-  iterSlider.position(10, 100);
-  iterSlider.style("width", "150px");
-  iterSlider.input(iterSlider_input);
-  iterText = createInput(str(iterSlider.value()), "number");
-  iterText.position(10, 70);
-  iterText.style("width", "40px")
-  iterText.input(iterText_input);
-  let iterTextLabel = createP("iterations per frame");
-  iterTextLabel.position(65, 57);
-  iterTextLabel.style("color", "#FFFFFF");
-  iterTextLabel.style("font-family", "Arial");
-  flickering = createCheckbox("prevent flickering", true);
-  flickering.position(15, 125);
-  flickering.style("color", "#FFFFFF");
-  flickering.style("font-family", "Arial");
-  flickering.changed(toggleFlickering);
+  // set up gui
+  // define where the control panel should go
+  const controlsContainer = createDiv();
+  controlsContainer.id("controlsContainer");
+  controlsContainer.style("position", "fixed"); // always visible, even when scrolling
+  controlsContainer.style("top", "10px");
+  controlsContainer.style("left", "10px"); // left or right
+  controlsContainer.style("width", "320px");
+  // create a pane as a child of the previously created div
+  pane = new Tweakpane.Pane({container: document.getElementById("controlsContainer"), title: "controls", expanded: true});
+  pane.registerPlugin(TweakpaneEssentialsPlugin); // add plugin for fpsgraph
+  pane.addSeparator();
+  pauseBtn = pane.addButton({title: "pause"}); // create pause button
+  pauseBtn.on("click", () => { // alternatively, use () => yourFunc(anArg, anotherArg) to call any function with arguments
+    if(!paused) {
+      paused = true;
+      pauseBtn.title = "resume";
+    } else {
+      paused = false;
+      pauseBtn.title = "pause";
+    }
+  });
+  pane.addSeparator();
 
-  // set up controls for painting
-  brushSlider = createSlider(1, 100, 35);
-  brushSlider.position(10, 220);
-  brushSlider.style("width", "150px");
-  brushSlider.input(brushSlider_input);
-  brushText = createInput(str(brushSlider.value()), "number");
-  brushText.position(10, 190);
-  brushText.style("width", "40px")
-  brushText.input(brushText_input);
-  let brushTextLabel = createP("brush size (Paint|Erase)");
-  brushTextLabel.position(65, 177);
-  brushTextLabel.style("color", "#FFFFFF");
-  brushTextLabel.style("font-family", "Arial");
+  pane.addButton({title: "clear"}).on("click", () => clear_cells());
+  pane.addButton({title: "fill"}).on("click", () => randomize_cells());
+  mandalaBtn = pane.addButton({title: "mandala"}).on("click", () => mandala());
+  iterSld = pane.addInput(controls, "iterations", {min: 2, max: 50, step: 2});
+  pane.addInput(controls, "noFlicker", {label: "prevent flickering"}).on("change", () => {
+    if(controls.noFlicker) {
+      iterSld.dispose();
+      controls.iterations = floor(controls.iterations / 2.0) * 2;
+      iterSld = pane.addInput(controls, "iterations", {index: 6, min: 2, max: 50, step: 2});
+    } else {
+      iterSld.dispose();
+      iterSld = pane.addInput(controls, "iterations", {index: 6, min: 1, max: 50, step: 1});
+    }
+  });
+  pane.addInput(controls, "brushSize", {min: 1, max: 100, step: 1});
+  const ruleControls = pane.addFolder({title: "rule", expanded: true});
+  ruleControls.addInput(controls, "symmetry", {label: "generate rules with rotational symmetry"});
+  ruleControls.addButton({title: "previous"}).on("click", () => back());
+  ruleControls.addButton({title: "generate new"}).on("click", () => generate());
+  ruleControls.addButton({title: "submit/refresh"}).on("click", () => submit());
+  // create p5.element text area and duct tape it to tweakpane
+  ruleText = createElement("textarea", controls.rule);
+  ruleText.parent(document.getElementsByClassName("tp-brkv tp-fldv_c")[0]); // gets a specific part of the pane, found by going through inspect element
+  ruleText.position(37, 4, "relative"); // i measured it, this is dead center with a pane width of 320.
+  ruleText.style("resize", "none");
+  ruleText.style("overflow", "hidden");
+  ruleText.attribute("cols", "30");
+  ruleText.attribute("rows", "16");
+  ruleText.attribute("maxlength", "512");
 
-  // set up a fill button
-  fillButton = createButton("fill screen");
-  fillButton.position(80, 10);
-  fillButton.mousePressed(randomize_cells);
-
-  // set up a mandala button
-  mandalaButton = createButton("mandala");
-  mandalaButton.position(165, 10);
-  mandalaButton.mousePressed(mandala);
-  mandalaLabel = createP("");
-  mandalaLabel.position(194, 22);
-  mandalaLabel.style("color", "#FFFFFF");
-  mandalaLabel.style("font-family", "Arial");
-
-  // set up a clear button
-  clearButton = createButton("clear");
-  clearButton.position(243, 10);
-  clearButton.mousePressed(clear_cells);
-
-  // set up a pause button
-  pauseButton = createButton("pause");
-  pauseButton.position(10, 10);
-  pauseButton.mousePressed(toggle_pause);
-
-  // set up symmetrical rule checkbox
-  symmetry = createCheckbox("randomize with 4-fold rotational symmetry", true);
-  symmetry.position(10, 575);
-  symmetry.style("color", "#FFFFFF");
-  symmetry.style("font-family", "Arial");
-
-  // show framerate checkbox
-  showFrames = createCheckbox("show framerate", false);
-  showFrames.position(10, 600);
-  showFrames.style("color", "#FFFFFF");
-  showFrames.style("font-family", "Arial");
-
-  // set up rule input/output
-  rule = createElement("textarea", "00010001000011010101000001001000000000010110000111001110000010010001101000101100000101110100011000011110001100001010010001100011000000000010010001100101011010110010101111110110000000100010100011011000010100011000110010100001000001010110000010110001010011001001000101011011011001000011101101111100011010001010010010101111001011001110010101111011011101000000011111001100100001111010101100011011101010111010111001000111011111011011001111000100001000111111001110000001000111100100010111010001111100011101100111111111");
-  rule.position(15, 313);
-  rule.style("resize", "none");
-  rule.attribute("cols", "30");
-  rule.attribute("rows", "16");
-  rule.attribute("maxlength", "512");
-  let ruleLabel = createP("RULE:");
-  ruleLabel.position(15, 270);
-  ruleLabel.style("color", "#FFFFFF");
-  ruleLabel.style("font-family", "Arial");
-  ruleBack = createButton("back");
-  ruleBack.position(68, 283);
-  ruleBack.mousePressed(back);
-  ruleGenerate = createButton("randomize");
-  ruleGenerate.position(118, 283);
-  ruleGenerate.mousePressed(generate);
-  ruleSubmit = createButton("submit");
-  ruleSubmit.position(202, 283);
-  ruleSubmit.mousePressed(submit);
+  pane.addSeparator();
+  const stats = pane.addFolder({title: "stats", expanded: false});
+  fpsGraph = stats.addBlade({view: "fpsgraph", label: "fps"});
 
   // set up zoom controls
   canvas.mouseWheel(zoomControl);
@@ -481,10 +377,12 @@ function setup() {
 }
 
 function draw() {
+  fpsGraph.begin();
+
   if(!paused) {
     // multiple iterations per frame
     let breaker = 0; // prevent overkill painting
-    for(let i = 0; i < iterSlider.value(); i++) {
+    for(let i = 0; i < controls.iterations; i++) {
       // draw graphics1 to graphics2 through the shader
       graphics2.push();
       graphics2.fill(255);
@@ -511,9 +409,9 @@ function draw() {
           graphics1.push();
           graphics1.fill(255 * (mouseButton == LEFT)); // white on LMB, black on RMB
           graphics1.noStroke();
-          graphics1.ellipse(paintX, paintY, brushSlider.value());
+          graphics1.ellipse(paintX, paintY, controls.brushSize);
           graphics1.stroke(255 * (mouseButton == LEFT));
-          graphics1.strokeWeight(brushSlider.value())
+          graphics1.strokeWeight(controls.brushSize)
           graphics1.line(lastBrushX, lastBrushY, paintX, paintY);
           graphics1.pop();
         }
@@ -539,7 +437,7 @@ function draw() {
           strokeWeight(2);
           // i haven't wrapped my head around this calculation, all i know is i have to multiply zoom back in here for
           // the ellipse to draw in the right location.
-          ellipse((paintX - halfWidth + panX) * zoom, (paintY - halfHeight + panY) * zoom, brushSlider.value() * zoom);
+          ellipse((paintX - halfWidth + panX) * zoom, (paintY - halfHeight + panY) * zoom, controls.brushSize * zoom);
           pop();
         }
       }
@@ -554,8 +452,6 @@ function draw() {
   // having this outside the pause check lets you zoom and pan while paused
   texture(graphics2);
   rect((-halfWidth + panX) * zoom, (-halfHeight + panY) * zoom, width * zoom, height * zoom);
-  
-  if(showFrames.checked()) {
-    draw_fps_avg();
-  }
+
+  fpsGraph.end();
 }
