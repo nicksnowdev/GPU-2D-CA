@@ -1,4 +1,4 @@
-/// <reference path="../../TSDef/p5/global.d.ts" />
+/// <reference path="../../../TSDef/p5/global.d.ts" />
 
 let pane;
 const controls = {
@@ -394,6 +394,7 @@ function setup() {
     ruleText.value(controls.rule);
     submit();
   })
+  pane.addSeparator();
   ruleControls.addInput(controls, "symmetry", {label: "generate rules with rotational symmetry"});
   ruleControls.addButton({title: "previous"}).on("click", () => back());
   ruleControls.addButton({title: "generate new"}).on("click", () => generate());
