@@ -289,7 +289,7 @@ function submit() {
 function back() {
   controls.rule = backArray.join("");
   ruleText.value(controls.rule);
-  pane.refresh();
+  //pane.refresh(); // im not sure why i thought this needed to be here, but it messes up the "previous" button
   submit();
 }
 
