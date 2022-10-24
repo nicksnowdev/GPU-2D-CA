@@ -1,11 +1,7 @@
 # GPU-2D-CA
  Made with p5.js
  
-<<<<<<< Updated upstream
- Try it here: https://openprocessing.org/sketch/1611064
-=======
  Try it here: https://one-lemon.com/projects/2D_CA/
->>>>>>> Stashed changes
 
  This project can simulate every possible 2D cellular automaton that uses a 3x3 kernel. How?
  
