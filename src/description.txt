@@ -1,0 +1,3 @@
+This project lets you generate rules for 2D cellular automata. The rule is represented by a 512-digit binary number. Each digit corresponds to a configuration of pixels in a 3x3 neighborhood, and the value of each digit represents the next state of the center pixel. Under the hood, the number is actually converted to a 512x1 texture and passed into a fragment shader as a uniform, where it's used to compute the next state for every pixel on the screen.
+
+Paint with the mouse, try the presets!
