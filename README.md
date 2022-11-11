@@ -1,7 +1,7 @@
 # GPU-2D-CA
  Made with p5.js
  
- Try it here: https://one-lemon.com/projects/2D_CA/
+ Try it here: https://one-lemon.com/projects/GPU-2D-CA/
 
  This project can simulate every possible 2D cellular automaton that uses a 3x3 kernel. How?
  
